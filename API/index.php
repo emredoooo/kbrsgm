@@ -157,6 +157,12 @@ switch ($resource) {
     case 'dashboard':
         handleDashboard($method);
         break;
+    case 'kartu_keluarga': // NEW: Tambahkan case ini!
+        handleKartuKeluarga($method);
+        break;
+    case 'family_members': // Jika Anda ingin mengaktifkan handler ini juga di masa depan
+        handleFamilyMembers($method);
+        break;
     default:
         sendJsonResponse(['status' => 'error', 'message' => 'Resource not found.'], 404);
         break;
@@ -265,7 +271,10 @@ function handleMembers($method) {
         case 'GET':
             if ($id) {
                 // Get single member by no_kbgm
-                $stmt = $pdo_kbgm->prepare("SELECT * FROM member WHERE no_kbgm = ? LIMIT 1");
+                $stmt = $pdo_kbgm->prepare("SELECT m.*, kk.no_kk as no_kk_alias, kk.alamat_kk as alamat_kk_fam, kk.kepala_keluarga_no_kbgm
+                                            FROM member m
+                                            LEFT JOIN kartu_keluarga kk ON m.kk_id = kk.id
+                                            WHERE m.no_kbgm = ? LIMIT 1");
                 $stmt->execute([$id]);
                 $member = $stmt->fetch();
                 if ($member) {
@@ -285,10 +294,13 @@ function handleMembers($method) {
             } else {
                 // Get all members
                 $keyword = $_GET['keyword'] ?? '';
-                $query = "SELECT * FROM member";
+                $query = "SELECT m.*, kk.no_kk as no_kk_alias, kk.alamat_kk as alamat_kk_fam
+                        FROM member m
+                        LEFT JOIN kartu_keluarga kk ON m.kk_id = kk.id";
                 $params = [];
                 if (!empty($keyword)) {
-                    $query .= " WHERE no_kbgm LIKE ? OR nama LIKE ?";
+                    $query .= " WHERE m.no_kbgm LIKE ? OR m.nama LIKE ? OR kk.no_kk LIKE ?";
+                    $params[] = "%{$keyword}%";
                     $params[] = "%{$keyword}%";
                     $params[] = "%{$keyword}%";
                 }
@@ -338,12 +350,28 @@ function handleMembers($method) {
 
             // Generate no_kbgm
             $kode_wilayah = getKodeWilayahFromNIKApi($nik);
-            $stmt_count = $pdo_kbgm->prepare("SELECT COUNT(*) as jumlah FROM member WHERE no_kbgm LIKE ?");
+
+            // 1. Cari no_kbgm terbesar dengan awalan yang sama
+            $stmt_max = $pdo_kbgm->prepare("SELECT MAX(no_kbgm) as max_kbgm FROM member WHERE no_kbgm LIKE ?");
             $like_pattern = $kode_wilayah . "%";
-            $stmt_count->execute([$like_pattern]);
-            $row_count = $stmt_count->fetch();
-            $nomor_urut = $row_count['jumlah'] + 1;
-            $no_kbgm_generated = $kode_wilayah . str_pad($nomor_urut, 4, '0', STR_PAD_LEFT);
+            $stmt_max->execute([$like_pattern]);
+            $result = $stmt_max->fetch();
+            $last_kbgm = $result['max_kbgm'] ?? null;
+
+            $nomor_urut = 0;
+            if ($last_kbgm) {
+                // 2. Ambil bagian angka dari no_kbgm terakhir (misal: dari TL0045 ambil 45)
+                // Angka 2 di sini adalah panjang dari $kode_wilayah ('TL')
+                $last_number = (int) substr($last_kbgm, strlen($kode_wilayah)); 
+                $nomor_urut = $last_number;
+            }
+
+            // 3. Tambah 1 untuk mendapatkan nomor urut berikutnya
+            $nomor_urut_baru = $nomor_urut + 1;
+
+            // 4. Gabungkan kembali menjadi no_kbgm yang baru
+            $no_kbgm_generated = $kode_wilayah . str_pad($nomor_urut_baru, 4, '0', STR_PAD_LEFT);
+
 
             try {
                 $stmt = $pdo_kbgm->prepare("INSERT INTO member (no_kbgm, nik, nama, alamat, tempat_lahir, tanggal_lahir, no_hp, waktu_bergabung, alamat_bergabung) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -375,6 +403,24 @@ function handleMembers($method) {
             $alamat_bergabung = trim($data['alamat_bergabung'] ?? null);
             $status = isset($data['status']) ? (int)$data['status'] : null;
 
+            $no_kk = trim($data['no_kk'] ?? null);
+            $hubungan_kk = trim($data['hubungan_kk'] ?? null);
+            $kk_id = null;
+
+            if ($no_kk) {
+                // Cari id dari tabel kartu_keluarga berdasarkan no_kk
+                $stmt_kk = $pdo_kbgm->prepare("SELECT id FROM kartu_keluarga WHERE no_kk = ?");
+                $stmt_kk->execute([$no_kk]);
+                $kk_row = $stmt_kk->fetch();
+                if ($kk_row) {
+                    $kk_id = $kk_row['id'];
+                } else {
+                    // Opsional: Jika KK tidak ditemukan, kamu bisa mengirim error atau membuatnya secara otomatis.
+                    // Untuk sekarang, kita kirim error.
+                    sendJsonResponse(['status' => 'error', 'message' => 'No. KK tidak ditemukan di database.'], 404);
+                }
+            }
+            
             $setParts = [];
             $params = [];
 
@@ -387,7 +433,9 @@ function handleMembers($method) {
             if ($waktu_bergabung !== null) { $setParts[] = 'waktu_bergabung = ?'; $params[] = $waktu_bergabung; }
             if ($alamat_bergabung !== null) { $setParts[] = 'alamat_bergabung = ?'; $params[] = $alamat_bergabung; }
             if ($status !== null) { $setParts[] = 'status = ?'; $params[] = $status; }
-
+            if ($kk_id !== null) { $setParts[] = 'kk_id = ?'; $params[] = $kk_id; }
+            if ($hubungan_kk !== null) { $setParts[] = 'hubungan_kk = ?'; $params[] = $hubungan_kk; }
+                
             if (empty($setParts)) {
                 sendJsonResponse(['status' => 'error', 'message' => 'No fields to update.'], 400);
             }
@@ -445,7 +493,7 @@ function handleMatching($method) {
         case 'GET':
             if ($no_kbgm) {
                 // Ambil data member KBGM
-                $stmt_member = $pdo_kbgm->prepare("SELECT nik FROM member WHERE no_kbgm = ? LIMIT 1");
+                $stmt_member = $pdo_kbgm->prepare("SELECT no_kbgm, nik, nama FROM member WHERE no_kbgm = ? LIMIT 1");
                 $stmt_member->execute([$no_kbgm]);
                 $member = $stmt_member->fetch();
 
@@ -658,7 +706,7 @@ function handleDashboard($method) {
 function handleKartuKeluarga($method) {
     $pdo_kbgm = getDbConnection('kbgm'); // Menggunakan koneksi database KBGM
     $id = $_GET['id'] ?? null; // ID KK (dari tabel kartu_keluarga)
-    $no_kk = $_GET['no_kk'] ?? null; // Nomor KK itu sendiri, untuk pencarian
+    $no_kk_get = $_GET['no_kk'] ?? null; // Nomor KK itu sendiri, untuk pencarian (ganti nama variabel agar tidak ambigu)
 
     switch ($method) {
         case 'GET':
@@ -675,12 +723,12 @@ function handleKartuKeluarga($method) {
                     $kk_data['anggota'] = $members_in_kk;
                     sendJsonResponse(['status' => 'success', 'data' => $kk_data]);
                 } else {
-                    sendJsonResponse(['status' => 'error', 'message' => 'Kartu Keluarga not found.'], 404);
+                    sendJsonResponse(['status' => 'success', 'data' => null, 'message' => 'Kartu Keluarga not found.', 'is_found' => false]);
                 }
-            } elseif ($no_kk) {
+            } elseif ($no_kk_get) {
                 // Mendapatkan satu KK berdasarkan nomor KK (no_kk)
                 $stmt = $pdo_kbgm->prepare("SELECT * FROM kartu_keluarga WHERE no_kk = ? LIMIT 1");
-                $stmt->execute([$no_kk]);
+                $stmt->execute([$no_kk_get]);
                 $kk_data = $stmt->fetch();
                 if ($kk_data) {
                     // Juga ambil anggota keluarga
@@ -690,13 +738,30 @@ function handleKartuKeluarga($method) {
                     $kk_data['anggota'] = $members_in_kk;
                     sendJsonResponse(['status' => 'success', 'data' => $kk_data]);
                 } else {
-                    sendJsonResponse(['status' => 'error', 'message' => 'Kartu Keluarga with this number not found.'], 404);
+                    sendJsonResponse(['status' => 'success', 'data' => null, 'message' => 'Kartu Keluarga with this number not found.', 'is_found' => false]);
                 }
             } else {
                 // Mendapatkan semua KK (dengan pagination/filter jika perlu di masa depan)
-                $stmt = $pdo_kbgm->query("SELECT * FROM kartu_keluarga ORDER BY no_kk ASC");
-                $all_kk = $stmt->fetchAll();
-                sendJsonResponse(['status' => 'success', 'data' => $all_kk]);
+                $keyword = $_GET['keyword'] ?? '';
+                $query = "SELECT * FROM kartu_keluarga";
+                $params = [];
+                if (!empty($keyword)) {
+                    $query .= " WHERE no_kk LIKE ? OR kepala_keluarga_no_kbgm LIKE ? OR alamat_kk LIKE ?";
+                    $params[] = "%{$keyword}%";
+                    $params[] = "%{$keyword}%";
+                    $params[] = "%{$keyword}%";
+                }
+                $query .= " ORDER BY no_kk ASC";
+
+                try {
+                    $stmt = $pdo_kbgm->prepare($query);
+                    $stmt->execute($params);
+                    $all_kk = $stmt->fetchAll();
+                    sendJsonResponse(['status' => 'success', 'data' => $all_kk]);
+                } catch (PDOException $e) {
+                    error_log("Error fetching all Kartu Keluarga: " . $e->getMessage());
+                    sendJsonResponse(['status' => 'error', 'message' => 'Failed to retrieve all Kartu Keluarga.'], 500);
+                }
             }
             break;
 
@@ -707,11 +772,21 @@ function handleKartuKeluarga($method) {
                 sendJsonResponse(['status' => 'error', 'message' => 'Invalid JSON input.'], 400);
             }
 
+            // Ekstraksi semua field dari payload, pastikan null untuk kolom opsional jika kosong
             $no_kk = trim($data['no_kk'] ?? '');
-            $kepala_keluarga_no_kbgm = trim($data['kepala_keluarga_no_kbgm'] ?? null); // KBGM No Kepala Keluarga
+            // PERBAIKAN: Gunakan ternary operator untuk memastikan nilai adalah NULL PHP jika string kosong
+            $kepala_keluarga_no_kbgm = empty(trim($data['kepala_keluarga_no_kbgm'] ?? '')) ? null : trim($data['kepala_keluarga_no_kbgm']);
             $alamat_kk = trim($data['alamat_kk'] ?? '');
-            $tanggal_pembuatan_kk = trim($data['tanggal_pembuatan_kk'] ?? null); // Format YYYY-MM-DD
+            $rt_kk = empty(trim($data['rt_kk'] ?? '')) ? null : trim($data['rt_kk']);
+            $rw_kk = empty(trim($data['rw_kk'] ?? '')) ? null : trim($data['rw_kk']);
+            $kelurahan_kk = empty(trim($data['kelurahan_kk'] ?? '')) ? null : trim($data['kelurahan_kk']);
+            $kecamatan_kk = empty(trim($data['kecamatan_kk'] ?? '')) ? null : trim($data['kecamatan_kk']);
+            $kota_kab_kk = empty(trim($data['kota_kab_kk'] ?? '')) ? null : trim($data['kota_kab_kk']);
+            $provinsi_kk = empty(trim($data['provinsi_kk'] ?? '')) ? null : trim($data['provinsi_kk']);
+            $kode_pos_kk = empty(trim($data['kode_pos_kk'] ?? '')) ? null : trim($data['kode_pos_kk']);
+            $tanggal_pembuatan_kk = empty(trim($data['tanggal_pembuatan_kk'] ?? '')) ? null : trim($data['tanggal_pembuatan_kk']);
 
+            // Validasi wajib
             if (empty($no_kk) || empty($alamat_kk)) {
                 sendJsonResponse(['status' => 'error', 'message' => 'No. KK and Alamat KK are required.'], 400);
             }
@@ -724,12 +799,26 @@ function handleKartuKeluarga($method) {
             }
 
             try {
-                $stmt = $pdo_kbgm->prepare("INSERT INTO kartu_keluarga (no_kk, kepala_keluarga_no_kbgm, alamat_kk, tanggal_pembuatan_kk) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$no_kk, $kepala_keluarga_no_kbgm, $alamat_kk, $tanggal_pembuatan_kk]);
+                $stmt = $pdo_kbgm->prepare("
+                    INSERT INTO kartu_keluarga (
+                        no_kk, kepala_keluarga_no_kbgm, alamat_kk, rt_kk, rw_kk,
+                        kelurahan_kk, kecamatan_kk, kota_kab_kk, provinsi_kk, kode_pos_kk,
+                        tanggal_pembuatan_kk
+                    ) VALUES (
+                        ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?,
+                        ?
+                    )
+                ");
+                $stmt->execute([
+                    $no_kk, $kepala_keluarga_no_kbgm, $alamat_kk, $rt_kk, $rw_kk,
+                    $kelurahan_kk, $kecamatan_kk, $kota_kab_kk, $provinsi_kk, $kode_pos_kk,
+                    $tanggal_pembuatan_kk
+                ]);
                 sendJsonResponse(['status' => 'success', 'message' => 'Kartu Keluarga added successfully!', 'id' => $pdo_kbgm->lastInsertId()], 201);
             } catch (PDOException $e) {
                 error_log("Error adding Kartu Keluarga: " . $e->getMessage());
-                sendJsonResponse(['status' => 'error', 'message' => 'Failed to add Kartu Keluarga.'], 500);
+                sendJsonResponse(['status' => 'error', 'message' => 'Failed to add Kartu Keluarga: ' . $e->getMessage()], 500);
             }
             break;
 
@@ -743,17 +832,33 @@ function handleKartuKeluarga($method) {
                 sendJsonResponse(['status' => 'error', 'message' => 'Invalid JSON input.'], 400);
             }
 
-            $no_kk = trim($data['no_kk'] ?? null);
-            $kepala_keluarga_no_kbgm = trim($data['kepala_keluarga_no_kbgm'] ?? null);
+            // Ekstraksi semua field dari payload, pastikan null untuk kolom opsional jika kosong
+            $no_kk_payload = trim($data['no_kk'] ?? null); // Ini dari payload, tapi tidak digunakan untuk WHERE atau SET
+            $kepala_keluarga_no_kbgm = empty(trim($data['kepala_keluarga_no_kbgm'] ?? '')) ? null : trim($data['kepala_keluarga_no_kbgm']);
             $alamat_kk = trim($data['alamat_kk'] ?? null);
-            $tanggal_pembuatan_kk = trim($data['tanggal_pembuatan_kk'] ?? null);
+            $rt_kk = empty(trim($data['rt_kk'] ?? '')) ? null : trim($data['rt_kk']);
+            $rw_kk = empty(trim($data['rw_kk'] ?? '')) ? null : trim($data['rw_kk']);
+            $kelurahan_kk = empty(trim($data['kelurahan_kk'] ?? '')) ? null : trim($data['kelurahan_kk']);
+            $kecamatan_kk = empty(trim($data['kecamatan_kk'] ?? '')) ? null : trim($data['kecamatan_kk']);
+            $kota_kab_kk = empty(trim($data['kota_kab_kk'] ?? '')) ? null : trim($data['kota_kab_kk']);
+            $provinsi_kk = empty(trim($data['provinsi_kk'] ?? '')) ? null : trim($data['provinsi_kk']);
+            $kode_pos_kk = empty(trim($data['kode_pos_kk'] ?? '')) ? null : trim($data['kode_pos_kk']);
+            $tanggal_pembuatan_kk = empty(trim($data['tanggal_pembuatan_kk'] ?? '')) ? null : trim($data['tanggal_pembuatan_kk']);
+
 
             $setParts = [];
             $params = [];
 
-            if ($no_kk !== null) { $setParts[] = 'no_kk = ?'; $params[] = $no_kk; }
+            // Hanya update field jika nilainya ada di payload dan bukan string kosong
             if ($kepala_keluarga_no_kbgm !== null) { $setParts[] = 'kepala_keluarga_no_kbgm = ?'; $params[] = $kepala_keluarga_no_kbgm; }
             if ($alamat_kk !== null) { $setParts[] = 'alamat_kk = ?'; $params[] = $alamat_kk; }
+            if ($rt_kk !== null) { $setParts[] = 'rt_kk = ?'; $params[] = $rt_kk; }
+            if ($rw_kk !== null) { $setParts[] = 'rw_kk = ?'; $params[] = $rw_kk; }
+            if ($kelurahan_kk !== null) { $setParts[] = 'kelurahan_kk = ?'; $params[] = $kelurahan_kk; }
+            if ($kecamatan_kk !== null) { $setParts[] = 'kecamatan_kk = ?'; $params[] = $kecamatan_kk; }
+            if ($kota_kab_kk !== null) { $setParts[] = 'kota_kab_kk = ?'; $params[] = $kota_kab_kk; }
+            if ($provinsi_kk !== null) { $setParts[] = 'provinsi_kk = ?'; $params[] = $provinsi_kk; }
+            if ($kode_pos_kk !== null) { $setParts[] = 'kode_pos_kk = ?'; $params[] = $kode_pos_kk; }
             if ($tanggal_pembuatan_kk !== null) { $setParts[] = 'tanggal_pembuatan_kk = ?'; $params[] = $tanggal_pembuatan_kk; }
 
             if (empty($setParts)) {
@@ -773,7 +878,7 @@ function handleKartuKeluarga($method) {
                 }
             } catch (PDOException $e) {
                 error_log("Error updating Kartu Keluarga: " . $e->getMessage());
-                sendJsonResponse(['status' => 'error', 'message' => 'Failed to update Kartu Keluarga.'], 500);
+                sendJsonResponse(['status' => 'error', 'message' => 'Failed to update Kartu Keluarga: ' . $e->getMessage()], 500);
             }
             break;
 
@@ -784,7 +889,6 @@ function handleKartuKeluarga($method) {
             }
             try {
                 // Setel kk_id dan hubungan_kk di member menjadi NULL jika KK dihapus
-                // Ini akan mencegah error foreign key jika KK memiliki member yang terhubung
                 $pdo_kbgm->beginTransaction(); // Mulai transaksi
                 $stmt_null_members = $pdo_kbgm->prepare("UPDATE member SET kk_id = NULL, hubungan_kk = NULL WHERE kk_id = ?");
                 $stmt_null_members->execute([$id]);
@@ -802,7 +906,7 @@ function handleKartuKeluarga($method) {
             } catch (PDOException $e) {
                 $pdo_kbgm->rollBack(); // Batalkan transaksi jika ada error
                 error_log("Error deleting Kartu Keluarga: " . $e->getMessage());
-                sendJsonResponse(['status' => 'error', 'message' => 'Failed to delete Kartu Keluarga.'], 500);
+                sendJsonResponse(['status' => 'error', 'message' => 'Failed to delete Kartu Keluarga: ' . $e->getMessage()], 500);
             }
             break;
 

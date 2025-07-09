@@ -59,11 +59,11 @@ if (!$member) {
           <button type="submit" name="simpan" class="btn btn-success" <?= $is_matched ? 'disabled' : '' ?>>
               <?= $is_matched ? 'Sudah Dicocokkan' : 'Simpan Pencocokan' ?>
           </button>
-          <a href="/kbgm/member/list_member.php" class="btn btn-secondary">Kembali</a>
+          <a href="/kbgm-v2/kbgm/member/list_member.php" class="btn btn-secondary">Kembali</a>
         </form>
       <?php else: ?>
         <div class="alert alert-warning">Pasien dengan NIK ini tidak ditemukan di database RS Griya Medika.</div>
-        <a href="/kbgm/member/list_member.php" class="btn btn-secondary">Kembali</a>
+        <a href="/kbgm-v2/kbgm/member/list_member.php" class="btn btn-secondary">Kembali</a>
       <?php endif; ?>
     </div>
   </div>
@@ -82,9 +82,9 @@ if (isset($_POST['simpan']) && $pasien) {
     ]);
 
     if ($save_match_response && $save_match_response['status'] === 'success') {
-        echo "<script>alert('Pencocokan berhasil disimpan!'); window.location.href='/kbgm/member/list_member.php';</script>";
+        echo "<script>alert('Pencocokan berhasil disimpan!'); window.location.href='/kbgm-v2/kbgm/member/list_member.php';</script>";
     } else if ($save_match_response && $save_match_response['status'] === 'error' && ($save_match_response['message'] ?? '') === 'Member already matched.') {
-        echo "<script>alert('Data sudah dicocokkan sebelumnya!'); window.location.href='/kbgm/member/list_member.php';</script>";
+        echo "<script>alert('Data sudah dicocokkan sebelumnya!'); window.location.href='/kbgm-v2/kbgm/member/list_member.php';</script>";
     }
     else {
         echo "<script>alert('Gagal menyimpan pencocokan: " . ($save_match_response['message'] ?? 'Unknown error') . "');</script>";

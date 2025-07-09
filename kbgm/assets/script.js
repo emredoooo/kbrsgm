@@ -106,74 +106,247 @@ function getKodeWilayahFromNIK(nik) {
 //     console.log("Kode Wilayah (JS):", kodeWilayah);
 // });
 
-//mencetak member
-function cetakMember(buttonElement, no_kbgm, nama, no_hp) {
+// Fungsi untuk download PDF langsung ke perangkat
+function downloadPdf(no_kbgm, nama, no_hp) { // Hilangkan buttonElement dari parameter jika tidak digunakan
     Swal.fire({
-        title: 'Pilih Opsi Cetak',
-        html: `Anda ingin:`,
-        icon: 'info',
+        title: 'Membuat PDF...',
+        html: 'Mohon tunggu, dokumen PDF sedang dibuat.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        unit: 'mm',
+        orientation: 'landscape',
+        format: [50, 20] // Lebar 50mm, Tinggi 20mm (Landscape)
+    });
+
+    const cardWidth = 50;
+    const marginX = 2;
+    const textStartX = marginX;
+    const maxTextWidth = cardWidth - (2 * marginX);
+
+    let yOffset = 5;
+    const defaultFontSize = 5;
+
+    doc.setFontSize(defaultFontSize);
+
+    const nameLabel = 'Nama: ';
+    let displayName = nama;
+
+    const smartTruncateNamePdf = (fullName, maxWidth, fontSize) => {
+        const words = fullName.split(' ').filter(w => w.length > 0);
+        if (words.length === 0) return fullName;
+
+        doc.setFontSize(fontSize);
+
+        let tempText = nameLabel + fullName;
+        let currentWidth = doc.getStringUnitWidth(tempText) * fontSize / doc.internal.scaleFactor;
+        if (currentWidth <= maxWidth) {
+            return fullName;
+        }
+
+        if (words.length >= 2) {
+            tempText = nameLabel + words[0] + ' ' + words[words.length - 1];
+            currentWidth = doc.getStringUnitWidth(tempText) * fontSize / doc.internal.scaleFactor;
+            if (currentWidth <= maxWidth) {
+                return words[0] + ' ' + words[words.length - 1];
+            }
+        }
+        
+        if (words.length >= 2) {
+            tempText = nameLabel + words[0] + ' ' + words[words.length - 1].charAt(0) + '.';
+            currentWidth = doc.getStringUnitWidth(tempText) * fontSize / doc.internal.scaleFactor;
+            if (currentWidth <= maxWidth) {
+                return words[0] + ' ' + words[words.length - 1].charAt(0) + '.';
+            }
+        }
+
+        let truncated = words[0];
+        tempText = nameLabel + truncated + '...';
+        currentWidth = doc.getStringUnitWidth(tempText) * fontSize / doc.internal.scaleFactor;
+        while (currentWidth > maxWidth && truncated.length > 0) {
+            truncated = truncated.substring(0, truncated.length - 1);
+            tempText = nameLabel + truncated + '...';
+            currentWidth = doc.getStringUnitWidth(tempText) * fontSize / doc.internal.scaleFactor;
+        }
+        return truncated + '...';
+    };
+
+    displayName = smartTruncateNamePdf(nama, maxTextWidth - doc.getStringUnitWidth(nameLabel) * defaultFontSize / doc.internal.scaleFactor, defaultFontSize);
+    
+    const finalNameText = nameLabel + displayName;
+
+    const splitName = doc.splitTextToSize(finalNameText, maxTextWidth);
+    doc.text(splitName, textStartX, yOffset);
+    yOffset += (splitName.length * defaultFontSize / 2.8) + 2;
+
+    doc.text(`No. KBGM: ${no_kbgm}`, textStartX, yOffset);
+    yOffset += (defaultFontSize / 2.8) + 2;
+
+    doc.text(`No. HP: ${no_hp}`, textStartX, yOffset);
+    yOffset += (defaultFontSize / 2.8) + 2;
+
+    doc.save(`KBGM_Member_${no_kbgm}.pdf`);
+
+    Swal.close();
+    Swal.fire({
+        title: 'Download Dimulai!',
+        text: 'Dokumen PDF Anda sedang diunduh.',
+        icon: 'success',
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false
+    });
+}
+
+// Fungsi untuk download JPEG langsung ke perangkat
+function downloadJpeg(no_kbgm, nama, no_hp) { // Hilangkan buttonElement dari parameter jika tidak digunakan
+    Swal.fire({
+        title: 'Membuat Gambar JPEG...',
+        html: 'Mohon tunggu, gambar sedang dibuat.',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    const imgWidthPx = 500;
+    const imgHeightPx = 200;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = imgWidthPx;
+    canvas.height = imgHeightPx;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const paddingPx = 15;
+    const textStartX = paddingPx;
+    const maxTextWidthPx = imgWidthPx - (2 * paddingPx);
+
+    let yOffsetPx = 30;
+
+    const defaultFontSizePx = 25;
+    ctx.font = `bold ${defaultFontSizePx}px Arial`;
+    ctx.fillStyle = 'black';
+
+    const nameLabel = 'Nama: ';
+    let displayName = nama;
+
+    const smartTruncateNameCanvas = (fullName, maxWidthPxMeasure, fontSizePx) => {
+        const words = fullName.split(' ').filter(w => w.length > 0);
+        if (words.length === 0) return fullName;
+
+        ctx.font = `bold ${fontSizePx}px Arial`;
+
+        let tempText = nameLabel + fullName;
+        let currentWidthPxMeasure = ctx.measureText(tempText).width;
+        if (currentWidthPxMeasure <= maxWidthPxMeasure) {
+            return fullName;
+        }
+
+        if (words.length >= 2) {
+            tempText = nameLabel + words[0] + ' ' + words[words.length - 1];
+            currentWidthPxMeasure = ctx.measureText(tempText).width;
+            if (currentWidthPxMeasure <= maxWidthPxMeasure) {
+                return words[0] + ' ' + words[words.length - 1];
+            }
+        }
+        
+        if (words.length >= 2) {
+            tempText = nameLabel + words[0] + ' ' + words[words.length - 1].charAt(0) + '.';
+            currentWidthPxMeasure = ctx.measureText(tempText).width;
+            if (currentWidthPxMeasure <= maxWidthPxMeasure) {
+                return words[0] + ' ' + words[words.length - 1].charAt(0) + '.';
+            }
+        }
+
+        let truncated = words[0];
+        tempText = nameLabel + truncated + '...';
+        currentWidthPxMeasure = ctx.measureText(tempText).width;
+        while (currentWidthPxMeasure > maxWidthPxMeasure && truncated.length > 0) {
+            truncated = truncated.substring(0, truncated.length - 1);
+            tempText = nameLabel + truncated + '...';
+            currentWidthPxMeasure = ctx.measureText(tempText).width;
+        }
+        return truncated + '...';
+    };
+
+    displayName = smartTruncateNameCanvas(nama, maxTextWidthPx, defaultFontSizePx);
+    
+    const splitName = [];
+    let currentLine = '';
+    const wordsInFinalName = (nameLabel + displayName).split(' ');
+    for (const word of wordsInFinalName) {
+        const testLine = currentLine === '' ? word : currentLine + ' ' + word;
+        if (ctx.measureText(testLine).width > maxTextWidthPx && currentLine !== '') {
+            splitName.push(currentLine);
+            currentLine = word;
+        } else {
+            currentLine = testLine;
+        }
+    }
+    splitName.push(currentLine);
+
+    for (const line of splitName) {
+        ctx.fillText(line, textStartX, yOffsetPx);
+        yOffsetPx += defaultFontSizePx + 8;
+    }
+
+    ctx.font = `bold ${defaultFontSizePx}px Arial`;
+    ctx.fillText(`No. KBGM: ${no_kbgm}`, textStartX, yOffsetPx);
+    yOffsetPx += defaultFontSizePx + 8;
+
+    ctx.fillText(`No. HP: ${no_hp}`, textStartX, yOffsetPx);
+    yOffsetPx += defaultFontSizePx + 8;
+
+    canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `KBGM_Member_${no_kbgm}.jpeg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        Swal.close();
+        Swal.fire({
+            title: 'Download Dimulai!',
+            text: 'Dokumen JPEG Anda sedang diunduh.',
+            icon: 'success',
+            timer: 3000,
+            timerProgressBar: true,
+            showConfirmButton: false
+        });
+    }, 'image/jpeg', 0.9);
+}
+
+// NEW: Fungsi untuk menampilkan opsi download (PDF atau JPEG)
+function showDownloadOptions(buttonElement, no_kbgm, nama, no_hp) {
+    Swal.fire({
+        title: 'Pilih Format Download',
+        icon: 'question',
         showCancelButton: true,
         showDenyButton: true,
-        confirmButtonText: 'Cetak Langsung', // Ganti teks
-        denyButtonText: `Buka PDF`, // Jika ingin tetap ada opsi PDF biasa
+        showConfirmButton: true,
+        confirmButtonText: 'Download PDF',
+        denyButtonText: 'Download JPEG',
         cancelButtonText: 'Batal',
         reverseButtons: true
     }).then((result) => {
         if (result.isConfirmed) {
-            // Pengguna memilih 'Cetak Langsung' via Bluetooth Print App
-
-            // Buat URL halaman respons PHP Anda
-            const responseUrl = `http://localhost/kbgm-v2/kbgm/print_response.php?no_kbgm=${encodeURIComponent(no_kbgm)}`;
-
-            // Buat link skema khusus untuk meluncurkan aplikasi Bluetooth Print 
-            const appSchemeUrl = `my.bluetoothprint.scheme://${encodeURIComponent(responseUrl)}`;
-
-            // Buka URL skema. Ini akan mencoba meluncurkan aplikasi "Bluetooth Print".
-            window.location.href = appSchemeUrl;
-
-            // Beri umpan balik ke pengguna
-            Swal.fire(
-                'Mengirim Perintah Cetak!',
-                'Aplikasi cetak akan diluncurkan. Pastikan printer terhubung.',
-                'info'
-            );
-
+            // Pengguna memilih Download PDF
+            downloadPdf(no_kbgm, nama, no_hp);
         } else if (result.isDenied) {
-            // Jika Anda masih ingin opsi untuk mengunduh/melihat PDF biasa yang dibuat jsPDF
-            // Ini akan kembali ke implementasi jsPDF sebelumnya
-            const { jsPDF } = window.jspdf;
-            // Penting: Jika Anda ingin format 50x20mm, pastikan Anda menggunakan ini lagi di sini
-            const doc = new jsPDF({
-                unit: 'mm',
-                format: [20, 50]
-            });
-
-            doc.setFontSize(5); // Sesuaikan font size
-            doc.text(`Nama: ${nama}`, 2, 5);
-            doc.text(`No. KBGM: ${no_kbgm}`, 2, 9);
-            doc.text(`No. HP: ${no_hp}`, 2, 13);
-            // ... tambahkan konten PDF sesuai kebutuhan
-
-            const pdfBlob = doc.output('blob');
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-
-            const newWindow = window.open(pdfUrl, '_blank');
-            if (newWindow) {
-                newWindow.focus();
-                Swal.fire({
-                    title: 'Pratinjau Dokumen Dibuka',
-                    html: 'Dokumen PDF telah dibuka di tab/jendela baru.<br>Silakan gunakan fungsi cetak bawaan browser Anda.',
-                    icon: 'info',
-                    showConfirmButton: true,
-                    confirmButtonText: 'Tutup'
-                });
-            } else {
-                Swal.fire(
-                    'Gagal Membuka Pratinjau',
-                    'Browser Anda memblokir popup. Harap izinkan popup untuk situs ini atau coba opsi "Simpan PDF".',
-                    'error'
-                );
-            }
+            // Pengguna memilih Download JPEG
+            downloadJpeg(no_kbgm, nama, no_hp);
         }
+        // Jika batal, tidak ada aksi
     });
 }
