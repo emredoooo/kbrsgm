@@ -26,7 +26,7 @@ if ($members_response && $members_response['status'] === 'success') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daftar Member KBGM</title>
+    <title>List Member KBGM</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
@@ -35,7 +35,7 @@ if ($members_response && $members_response['status'] === 'success') {
 <body>
 
     <div class="container-fluid mt-4">
-        <h2>Daftar Member KBGM</h2>
+        <h2>List Member KBGM</h2>
 
         <div class="mb-3">
             <form action="/kbgm-v2/kbgm/member/list_member.php" method="GET" class="d-flex">

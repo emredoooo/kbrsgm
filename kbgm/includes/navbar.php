@@ -18,7 +18,7 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownMember">
                         <li><a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'add_member.php' ? 'active' : '' ?>" href="/kbgm-v2/kbgm/member/add_member.php">Tambah Member</a></li>
-                        <li><a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'list_member.php' ? 'active' : '' ?>" href="/kbgm-v2/kbgm/member/list_member.php">Daftar Member</a></li>
+                        <li><a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'list_member.php' ? 'active' : '' ?>" href="/kbgm-v2/kbgm/member/list_member.php">List Member</a></li>
                     </ul>
                 </li>
 
@@ -28,7 +28,7 @@
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownKartuKeluarga">
                         <li><a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'manage_kk.php' && !isset($_GET['no_kk']) ? 'active' : '' ?>" href="/kbgm-v2/kbgm/kartu_keluarga/manage_kk.php">Tambah KK Baru</a></li>
-                        <li><a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'list_kk.php' ? 'active' : '' ?>" href="/kbgm-v2/kbgm/kartu_keluarga/list_kk.php">Daftar Kartu Keluarga</a></li>
+                        <li><a class="dropdown-item <?= basename($_SERVER['PHP_SELF']) === 'list_kk.php' ? 'active' : '' ?>" href="/kbgm-v2/kbgm/kartu_keluarga/list_kk.php">List Kartu Keluarga</a></li>
                     </ul>
                 </li>
             </ul>
@@ -41,7 +41,7 @@
                     <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownMenuLink">
                         <li><a class="dropdown-item" href="/kbgm-v2/kbgm/buku_saku.php" target="_blank" rel="noopener noreferrer">Bantuan (?)</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item text-danger fw-bold" href="/kbgm/logout.php">Logout</a></li>
+                        <li><a class="dropdown-item text-danger fw-bold" href="/kbgm-v2/kbgm/logout.php">Logout</a></li>
                     </ul>
                 </li>
             </ul>

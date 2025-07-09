@@ -1,145 +1,68 @@
 <?php
-include 'includes/auth.php'; // Biarkan autentikasi lokal dulu
-include 'includes/navbar.php';
-include 'includes/api_helper.php'; // Sertakan API helper
+// Tentukan judul halaman
+$page_title = 'Dashboard';
 
-// Ambil data ringkasan umum dari API
-$summary_response = callApi('dashboard&type=summary', 'GET');
-$jumlah_member_total = 0;
-$jumlah_kunjungan = 0;
-$kunjungan_terakhir = null;
+// Panggil header. File ini SANGAT PENTING untuk memuat semua file CSS dan struktur utama.
+// Pastikan file 'includes/header.php' dan 'includes/config.php' sudah benar.
+require_once 'includes/header.php';
 
-if ($summary_response && $summary_response['status'] === 'success') {
-    $jumlah_member_total = $summary_response['data']['jumlah_member_total'];
-    $jumlah_kunjungan = $summary_response['data']['jumlah_kunjungan'];
-    $kunjungan_terakhir = $summary_response['data']['kunjungan_terakhir'];
-} else {
-    error_log("Failed to fetch dashboard summary from API: " . ($summary_response['message'] ?? 'Unknown error'));
-}
-
-// --- Data untuk Grafik Member Bergabung (30 Hari Terakhir) ---
-$daily_member_response = callApi('dashboard&type=daily_members', 'GET');
-$json_chart_labels = '[]';
-$json_daily_member_counts = '[]';
-
-if ($daily_member_response && $daily_member_response['status'] === 'success') {
-    $chart_labels = $daily_member_response['data']['labels'];
-    $daily_member_counts = $daily_member_response['data']['counts'];
-    $json_chart_labels = json_encode($chart_labels);
-    $json_daily_member_counts = json_encode($daily_member_counts);
-} else {
-    error_log("Failed to fetch daily member counts from API: " . ($daily_member_response['message'] ?? 'Unknown error'));
-}
+// --- BAGIAN PENGAMBILAN DATA API UNTUK SEMENTARA DIMATIKAN ---
+// Kita akan fokus memperbaiki tampilan terlebih dahulu.
+// Angka di bawah ini kita set ke 0 untuk sementara.
+$total_kk = 0;
+$total_members = 0;
+$total_visits = 0;
 
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>KBGM</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="../kbgm-v2/kbgm/assets/style.css"> <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="../kbgm-v2/kbgm/assets/script.js" defer></script> </head>
-<body class="bg-light">
-    <?php // include navbar di sini jika belum ada ?>
-
-    <div class="container py-5">
-        <h2 class="mb-4">Dashboard KBGM</h2>
-
-        <div class="row g-4 mb-4">
-            <div class="col-md-3">
-                <div class="card text-white bg-primary">
-                    <div class="card-body">
-                        <h5>Total Member KBGM</h5>
-                        <h3><?= $jumlah_member_total ?></h3>
-                    </div>
-                </div>
+<!-- KONTEN UTAMA DASHBOARD -->
+<div class="row">
+    <div class="col-lg-4 col-6">
+        <!-- small box -->
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3><?php echo $total_kk; ?></h3>
+                <p>Total Kartu Keluarga</p>
             </div>
-
-            <div class="col-md-3">
-                <div class="card text-white bg-success">
-                    <div class="card-body">
-                        <h5>Member Pernah Dirawat</h5>
-                        <h3><?= $jumlah_kunjungan ?></h3>
-                    </div>
-                </div>
+            <div class="icon">
+                <i class="fas fa-users"></i>
             </div>
-
-            </div>
-
-        <div class="row g-4">
-            <div class="col-md-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h5>Pendaftaran Member Baru (30 Hari Terakhir)</h5>
-                        <div class="chart-container">
-                            <canvas id="memberChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <a href="<?php echo BASE_URL; ?>kartu_keluarga/list_kk.php" class="small-box-footer">Info lebih lanjut <i class="fas fa-arrow-circle-right"></i></a>
         </div>
-
     </div>
+    <!-- ./col -->
+    <div class="col-lg-4 col-6">
+        <!-- small box -->
+        <div class="small-box bg-success">
+            <div class="inner">
+                <h3><?php echo $total_members; ?></h3>
+                <p>Total Anggota</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <a href="<?php echo BASE_URL; ?>member/list_member.php" class="small-box-footer">Info lebih lanjut <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+    </div>
+    <!-- ./col -->
+    <div class="col-lg-4 col-6">
+        <!-- small box -->
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h3><?php echo $total_visits; ?></h3>
+                <p>Total Kunjungan</p>
+            </div>
+            <div class="icon">
+                <i class="fas fa-briefcase-medical"></i>
+            </div>
+            <a href="#" class="small-box-footer">Info lebih lanjut <i class="fas fa-arrow-circle-right"></i></a>
+        </div>
+    </div>
+    <!-- ./col -->
+</div>
+<!-- /.row -->
 
-    <script>
-        const chartLabels = <?= $json_chart_labels ?>;
-        const dailyMemberCounts = <?= $json_daily_member_counts ?>;
-
-        const ctx = document.getElementById('memberChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartLabels,
-                datasets: [{
-                    label: 'Jumlah Member Baru',
-                    data: dailyMemberCounts,
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: true,
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Jumlah Member'
-                        },
-                        ticks: {
-                            callback: function(value) {
-                                if (Number.isInteger(value)) {
-                                    return value;
-                                }
-                            }
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Tanggal'
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                    }
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+<?php
+// Panggil footer. File ini PENTING untuk memuat file-file JavaScript.
+require_once 'includes/footer.php';
+?>
